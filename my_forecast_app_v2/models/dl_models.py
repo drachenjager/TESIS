@@ -30,20 +30,22 @@ class LSTMModel(nn.Module):
         return self.fc(out[:, -1, :])
 
 def train_model(model_cls, train_data, test_data,
-                epochs=50, batch_size=8):
+                epochs=50, batch_size=8, steps=1):
     # Si train_data muy pequeño, fallback de persistencia
     if len(train_data) <= 1:
         preds = np.repeat(train_data.iloc[-1], len(test_data))
         mae   = np.mean(np.abs(preds - test_data))
         rmse  = math.sqrt(np.mean((preds - test_data) ** 2))
-        return mae, rmse, preds, preds[-1]
+        fc_vals = [float(train_data.iloc[-1])] * steps
+        return mae, rmse, preds, fc_vals
 
     X_train, y_train = prepare_data_dl(train_data)
     if X_train.shape[0] == 0:
         preds = np.repeat(train_data.iloc[-1], len(test_data))
         mae   = np.mean(np.abs(preds - test_data))
         rmse  = math.sqrt(np.mean((preds - test_data) ** 2))
-        return mae, rmse, preds, preds[-1]
+        fc_vals = [float(train_data.iloc[-1])] * steps
+        return mae, rmse, preds, fc_vals
 
     loader = DataLoader(TensorDataset(X_train, y_train),
                         batch_size=batch_size, shuffle=False)
@@ -74,16 +76,21 @@ def train_model(model_cls, train_data, test_data,
     mae   = np.mean(np.abs(preds - t))
     rmse  = math.sqrt(np.mean((preds - t) ** 2))
 
-    next_in = torch.tensor([[[float(test_data.iloc[-1])]]], dtype=torch.float32)
-    with torch.no_grad():
-        fc = model(next_in).item()
+    next_val_in = torch.tensor([[[float(test_data.iloc[-1])]]], dtype=torch.float32)
+    fc_vals = []
+    for _ in range(steps):
+        with torch.no_grad():
+            nxt = model(next_val_in).item()
+        fc_vals.append(float(nxt))
+        next_val_in = torch.tensor([[[float(nxt)]]], dtype=torch.float32)
 
-    return mae, rmse, preds, fc
+    return mae, rmse, preds, fc_vals
 
-def train_rnn(train_data, test_data):
-    mae, rmse, preds, fc = train_model(RNNModel, train_data, test_data)
+def train_rnn(train_data, test_data, steps=1):
+    mae, rmse, preds, fc = train_model(RNNModel, train_data, test_data, steps=steps)
     return {"Modelo":"RNN","MAE":round(mae,4),"RMSE":round(rmse,4)}, preds, fc
 
-def train_lstm(train_data, test_data):
-    mae, rmse, preds, fc = train_model(LSTMModel, train_data, test_data)
+def train_lstm(train_data, test_data, steps=1):
+    mae, rmse, preds, fc = train_model(LSTMModel, train_data, test_data, steps=steps)
     return {"Modelo":"LSTM","MAE":round(mae,4),"RMSE":round(rmse,4)}, preds, fc
+

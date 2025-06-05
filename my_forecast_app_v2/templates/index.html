@@ -30,6 +30,14 @@
             <option value="1mo">Mensual</option>
         </select>
 
+        <label for="horizon_select" class="mt-3">Puntos a pronosticar:</label>
+        <select name="horizon_select" id="horizon_select"
+                class="form-select" style="max-width:300px;">
+            {% for n in range(1, 31) %}
+                <option value="{{ n }}">{{ n }}</option>
+            {% endfor %}
+        </select>
+
         <button type="submit" class="btn btn-primary mt-3">
             Consultar y pronosticar
         </button>
@@ -45,10 +53,10 @@
     {% endif %}
 
     {% if forecast_values %}
-        <h2 class="mt-4">Pronóstico siguiente punto</h2>
+        <h2 class="mt-4">Pronóstico próximos {{ horizon }}</h2>
         <ul>
-            {% for model, val in forecast_values.items() %}
-                <li><strong>{{ model }}:</strong> {{ val }}</li>
+            {% for model, val_list in forecast_values.items() %}
+                <li><strong>{{ model }}:</strong> {{ val_list }}</li>
             {% endfor %}
         </ul>
     {% endif %}
