@@ -2,6 +2,7 @@
 from flask import Flask, render_template, request
 import yfinance as yf
 import pandas as pd
+import os
 import warnings
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
 
@@ -23,6 +24,30 @@ def set_internal_freq(df: pd.DataFrame, interval: str) -> pd.DataFrame:
         return df.asfreq("MS").ffill()
     return df
 
+def apply_period(df: pd.DataFrame, period: str) -> pd.DataFrame:
+    end_date = df.index.max()
+    if period.endswith("mo"):
+        months = int(period[:-2])
+        start_date = end_date - pd.DateOffset(months=months)
+    elif period.endswith("y"):
+        years = int(period[:-1])
+        start_date = end_date - pd.DateOffset(years=years)
+    else:
+        start_date = end_date - pd.DateOffset(months=6)
+    return df.loc[start_date:]
+
+def load_currency_data(period: str, interval: str) -> pd.DataFrame:
+    try:
+        df_raw = yf.download("MXN=X", period=period, interval=interval, auto_adjust=True)
+    except Exception:
+        df_raw = pd.DataFrame()
+    if df_raw.empty:
+        sample = os.path.join(os.path.dirname(__file__), "data", "usdmxn_sample.csv")
+        df_raw = pd.read_csv(sample, parse_dates=["Date"], index_col="Date")
+        df_raw = apply_period(df_raw, period)
+    df = df_raw[["Close"]].rename(columns={"Close": "y"})
+    return set_internal_freq(df, interval)
+
 @app.route("/", methods=["GET", "POST"])
 def index():
     tables_html, forecast_values, error_msg = None, None, None
@@ -34,15 +59,7 @@ def index():
         horizon_select  = int(request.form.get("horizon_select", "1"))
 
         try:
-            df_raw = yf.download("MXN=X",
-                                 period=period_select,
-                                 interval=interval_select,
-                                 auto_adjust=True)
-            if df_raw.empty:
-                raise ValueError("No se encontraron datos para ese rango.")
-
-            df = df_raw[['Close']].rename(columns={'Close':'y'})
-            df = set_internal_freq(df, interval_select)
+            df = load_currency_data(period_select, interval_select)
 
             total_points = len(df)
             if total_points < 3:
