@@ -24,13 +24,14 @@ def _safe_return(name, preds, fc, test_data):
         "MAE":   round(mae,4)   if not np.isnan(mae)   else "–",
         "RMSE":  round(rmse,4)  if not np.isnan(rmse)  else "–"
     }
-    return metrics, preds, float(fc)
+    return metrics, preds, fc
 
-def train_linear_regression(train_data, test_data):
+def train_linear_regression(train_data, test_data, steps=1):
     X, y = create_supervised(train_data)
     if X.shape[0] == 0:
         preds = np.repeat(train_data.iloc[-1], len(test_data))
-        return _safe_return("Regresión Lineal", preds, preds[-1], test_data)
+        fc_vals = [float(train_data.iloc[-1])] * steps
+        return _safe_return("Regresión Lineal", preds, fc_vals, test_data)
 
     model = LinearRegression().fit(X, y)
     preds, cur = [], train_data.iloc[-1]
@@ -38,14 +39,20 @@ def train_linear_regression(train_data, test_data):
         preds.append(model.predict([[cur]])[0])
         cur = val
     preds = np.array(preds)
-    fc = model.predict([[test_data.iloc[-1]]])[0]
-    return _safe_return("Regresión Lineal", preds, fc, test_data)
+    fc_vals = []
+    cur = test_data.iloc[-1]
+    for _ in range(steps):
+        nxt = model.predict([[cur]])[0]
+        fc_vals.append(float(nxt))
+        cur = nxt
+    return _safe_return("Regresión Lineal", preds, fc_vals, test_data)
 
-def train_random_forest(train_data, test_data):
+def train_random_forest(train_data, test_data, steps=1):
     X, y = create_supervised(train_data)
     if X.shape[0] == 0:
         preds = np.repeat(train_data.iloc[-1], len(test_data))
-        return _safe_return("Random Forest", preds, preds[-1], test_data)
+        fc_vals = [float(train_data.iloc[-1])] * steps
+        return _safe_return("Random Forest", preds, fc_vals, test_data)
 
     model = RandomForestRegressor(n_estimators=100).fit(X, y)
     preds, cur = [], train_data.iloc[-1]
@@ -53,5 +60,11 @@ def train_random_forest(train_data, test_data):
         preds.append(model.predict([[cur]])[0])
         cur = val
     preds = np.array(preds)
-    fc = model.predict([[test_data.iloc[-1]]])[0]
-    return _safe_return("Random Forest", preds, fc, test_data)
+    fc_vals = []
+    cur = test_data.iloc[-1]
+    for _ in range(steps):
+        nxt = model.predict([[cur]])[0]
+        fc_vals.append(float(nxt))
+        cur = nxt
+    return _safe_return("Random Forest", preds, fc_vals, test_data)
+

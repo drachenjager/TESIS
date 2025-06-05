@@ -26,10 +26,12 @@ def set_internal_freq(df: pd.DataFrame, interval: str) -> pd.DataFrame:
 @app.route("/", methods=["GET", "POST"])
 def index():
     tables_html, forecast_values, error_msg = None, None, None
+    horizon_select = 1
 
     if request.method == "POST":
         period_select   = request.form.get("period_select", "6mo")
         interval_select = request.form.get("interval_select", "1d")
+        horizon_select  = int(request.form.get("horizon_select", "1"))
 
         try:
             df_raw = yf.download("MXN=X",
@@ -52,23 +54,23 @@ def index():
             if len(train_data) < 3:
                 raise ValueError("Entrenamiento insuficiente (min 3 filas).")
 
-            sarima_m, _, sarima_fc = train_sarima(train_data, test_data)
-            holt_m,  _, holt_fc   = train_holtwinters(train_data, test_data)
-            lr_m,    _, lr_fc     = train_linear_regression(train_data, test_data)
-            rf_m,    _, rf_fc     = train_random_forest(train_data, test_data)
-            rnn_m,   _, rnn_fc    = train_rnn(train_data, test_data)
-            lstm_m,  _, lstm_fc   = train_lstm(train_data, test_data)
+            sarima_m, _, sarima_fc = train_sarima(train_data, test_data, horizon_select)
+            holt_m,  _, holt_fc   = train_holtwinters(train_data, test_data, horizon_select)
+            lr_m,    _, lr_fc     = train_linear_regression(train_data, test_data, horizon_select)
+            rf_m,    _, rf_fc     = train_random_forest(train_data, test_data, horizon_select)
+            rnn_m,   _, rnn_fc    = train_rnn(train_data, test_data, horizon_select)
+            lstm_m,  _, lstm_fc   = train_lstm(train_data, test_data, horizon_select)
 
             metrics_df = pd.DataFrame([sarima_m, holt_m, lr_m, rf_m, rnn_m, lstm_m])
             tables_html = metrics_df.to_html(index=False, classes="table table-striped")
 
             forecast_values = {
-                "SARIMA":       sarima_fc,
-                "Holt‑Winters": holt_fc,
-                "LinearReg":    lr_fc,
-                "RandomForest": rf_fc,
-                "RNN":          rnn_fc,
-                "LSTM":         lstm_fc
+                "SARIMA":       list(sarima_fc),
+                "Holt‑Winters": list(holt_fc),
+                "LinearReg":    list(lr_fc),
+                "RandomForest": list(rf_fc),
+                "RNN":          list(rnn_fc),
+                "LSTM":         list(lstm_fc)
             }
 
         except Exception as exc:
@@ -77,7 +79,8 @@ def index():
     return render_template("index.html",
                            tables=tables_html,
                            forecast_values=forecast_values,
-                           error_msg=error_msg)
+                           error_msg=error_msg,
+                           horizon=horizon_select if request.method == "POST" else None)
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000, use_reloader=False)
